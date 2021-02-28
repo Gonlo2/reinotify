@@ -18,7 +18,7 @@ def main():
     for x in ids_and_paths:
         watch_id, path = x.split(':', 1)
         path = os.path.abspath(path)
-        proxy = Proxy(ip, port)
+        proxy = Proxy((ip, port))
         watcher = Watcher(watch_id, path, proxy)
         watcher.start()
         watchers.append(watcher)
