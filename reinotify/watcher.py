@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 import logging
 import os
+import time
 from threading import Thread
 
 import inotify.constants as iconst
 from inotify.adapters import InotifyTree
+from inotify.calls import InotifyError
 
 from .types import InotifyEvent
 
@@ -27,6 +29,15 @@ class Watcher:
         self._thread.start()
 
     def _loop(self):
+        while True:
+            time_limit = time.time() + 1
+            try:
+                self._watch()
+            except InotifyError:
+                logger.exception("Raised InotifyError")
+                time.sleep(max(time_limit - time.time(), 0))
+
+    def _watch(self):
         for e in self._get_event():
             logger.debug(f"Received event (mask: {e.mask}, cookie: {e.cookie}, path: '{e.path}', name: '{e.name}')")
             try:
@@ -39,10 +50,12 @@ class Watcher:
         inotify = InotifyTree(self._path, self._mask)
 
         logger.debug(f"Starting watcher loop in '{self._path}'")
-        for header, _, path, name in inotify.event_gen(yield_nones=False):
-            path = os.path.relpath(path, start=self._path)
-            if path == '.':
-                path = ''
-            yield InotifyEvent(wid=self._wid, mask=header.mask,
-                               cookie=header.cookie, path=path,
-                               name=name)
+        try:
+            for header, _, path, name in inotify.event_gen(yield_nones=False):
+                path = os.path.relpath(path, start=self._path)
+                if path == '.':
+                    path = ''
+                yield InotifyEvent(wid=self._wid, path=path, name=name,
+                                   mask=header.mask, cookie=header.cookie)
+        finally:
+            del inotify
