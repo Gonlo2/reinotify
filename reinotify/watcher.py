@@ -35,7 +35,11 @@ class Watcher:
                 self._watch()
             except InotifyError:
                 logger.exception("Raised InotifyError")
-                time.sleep(max(time_limit - time.time(), 0))
+            except:
+                logger.exception("Raised unknown exception")
+            seconds_to_sleep = time_limit - time.time()
+            if seconds_to_sleep > 0:
+                time.sleep(seconds_to_sleep)
 
     def _watch(self):
         for e in self._get_event():
